@@ -85,9 +85,11 @@ app.post('/api/auth/login', async (req, res) => {
         // إعطاء "كارت دخول" (Token) للمتصفح
         const token = jwt.sign({ id: user._id }, 'secret_key', { expiresIn: '1h' });
         res.json({ token, message: 'تم الدخول بنجاح!' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+   88  } catch (error) {
+89    res.status(500).json({ error: error.message });
+90  }
+});
+
 app.get('/', (req, res) => {
   res.send('Final Test: Server is working!');
 });
