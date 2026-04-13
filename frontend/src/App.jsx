@@ -4,8 +4,7 @@ function App() {
   const [formData, setFormData] = useState({ name: '', price: '', description: '' });
   const [products, setProducts] = useState([]);
   // ده لينك السيرفر بتاعك على فيرسيل
-  const API_URL = 'https://my-digital-store-six.vercel.app/api/products';
-
+ const API_URL = 'https://my-digital-store-six.vercel.app/api/products';
   // دالة لجلب المنتجات من القاعدة
   const fetchProducts = async () => {
     try {
