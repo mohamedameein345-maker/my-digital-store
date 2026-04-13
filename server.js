@@ -108,6 +108,25 @@ app.post('/api/products/add', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// --- 1. مسار عرض كل المنتجات (عشان نشوفهم ونختار هنمسح إيه) ---
+app.get('/api/products', async (req, res) => {
+  try {
+   const products = await mongoose.model('Product').find();
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- 2. مسار حذف منتج معين ---
+app.delete('/api/products/:id', async (req, res) => {
+  try {
+    await Product.findByIdAndDelete(req.params.id);
+    res.json({ message: 'تم حذف المنتج بنجاح! 🗑️' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 app.get('/', (req, res) => {
   res.send('Final Test: Server is working!');
 });
