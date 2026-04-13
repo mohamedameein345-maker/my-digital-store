@@ -89,7 +89,25 @@ app.post('/api/auth/login', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+// --- مسار إضافة منتج جديد (لوحة التحكم) ---
+app.post('/api/products/add', async (req, res) => {
+  try {
+    const { name, price, description, imageUrl, digitalFileUrl } = req.body;
+    
+    const newProduct = new Product({
+      name,
+      price,
+      description,
+      imageUrl,
+      digitalFileUrl
+    });
 
+    await newProduct.save();
+    res.status(201).json({ message: 'تم إضافة المنتج بنجاح! ✅' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 app.get('/', (req, res) => {
   res.send('Final Test: Server is working!');
 });
