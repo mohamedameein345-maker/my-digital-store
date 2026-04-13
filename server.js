@@ -1,105 +1,55 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const multer = require('multer'); // استدعاء العتّال
+const multer = require('multer');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('./models/User'); // استدعاء قالب المستخدم
 require('dotenv').config();
 
+// استدعاء الموديلات
+const User = require('./models/User');
 const Product = require('./models/Product');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- 1. فتح باب المخزن للجمهور ---
-// السطر ده بيخلي أي حد يطلب صورة أو ملف من مجلد uploads السيرفر يبعتهوله فوراً
+// فتح باب المخزن للصور
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// --- 2. قواعد استلام وتسمية الملفات ---
+// إعدادات multer لرفع الملفات
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/'); // حط الملفات في مجلد uploads
-    },
-    filename: (req, file, cb) => {
-        // سمّي الملف: (تاريخ اللحظة دي) + (اسم الملف الأصلي)
-        cb(null, Date.now() + '-' + file.originalname);
-    }
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
 });
 const upload = multer({ storage: storage });
 
+// الاتصال بقاعدة البيانات
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('تم الاتصال بالخزنة بنجاح! 🥳'))
-    .catch(err => console.log(err));
+  .then(() => console.log('تم الاتصال بالخزنة بنجاح! 😍'))
+  .catch(err => console.log(err));
 
-// --- 3. مسار إضافة المنتج (بعد تعديله ليستقبل ملف) ---
-// لاحظ كلمة: upload.single('file') هي دي اللي بتفتش في الطرد
-app.post('/api/products', upload.single('file'), async (req, res) => {
-    try {
-        const productData = {
-            name: req.body.name,
-            price: req.body.price,
-            description: req.body.description,
-            // هنا بنخزن رابط الملف الحقيقي اللي اتسيف في uploads
-            fileUrl: `http://localhost:5000/uploads/${req.file.filename}`
-        };
-        const newProduct = new Product(productData);
-        await newProduct.save();
-        res.status(201).json(newProduct);
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-app.get('/api/products', async (req, res) => {
-    const products = await Product.find();
-    res.json(products);
-});
-// --- 1. مسار إنشاء حساب مدير (لأول مرة فقط) ---
-app.post('/api/auth/register', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        // تشفير الباسورد عشان لو حد سرق القاعدة ميشوفوش
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({ email, password: hashedPassword });
-        await newUser.save();
-        res.status(201).json({ message: 'تم إنشاء حساب المدير بنجاح!' });
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
-
-// --- 2. مسار تسجيل الدخول ---
-app.post('/api/auth/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ message: 'الإيميل غير موجود' });
-
-        // مقارنة الباسورد اللي كتبته باللي متشفر في القاعدة
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ message: 'الباسورد غلط' });
-
-        // إعطاء "كارت دخول" (Token) للمتصفح
-        const token = jwt.sign({ id: user._id }, 'secret_key', { expiresIn: '1h' });
-        res.json({ token, message: 'تم الدخول بنجاح!' });
-   88 } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-// --- مسار إضافة منتج جديد (لوحة التحكم) ---
-app.post('/api/products/add', async (req, res) => {
+// --- 1. مسار إضافة منتج جديد (لوحة التحكم) ---
+app.post('/api/products/add', upload.single('file'), async (req, res) => {
   try {
     const { name, price, description, imageUrl, digitalFileUrl } = req.body;
     
+    // لو فيه ملف مرفوع حقيقي بنستخدمه، لو مفيش بنستخدم الرابط اللي جاي من الـ Body
+    const finalFileUrl = req.file 
+      ? `https://${req.get('host')}/uploads/${req.file.filename}` 
+      : digitalFileUrl;
+
     const newProduct = new Product({
       name,
       price,
       description,
       imageUrl,
-      digitalFileUrl
+      digitalFileUrl: finalFileUrl
     });
 
     await newProduct.save();
@@ -108,17 +58,18 @@ app.post('/api/products/add', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-// --- 1. مسار عرض كل المنتجات (عشان نشوفهم ونختار هنمسح إيه) ---
+
+// --- 2. مسار عرض كل المنتجات ---
 app.get('/api/products', async (req, res) => {
   try {
-   const products = await mongoose.model('Product').find();
+    const products = await Product.find();
     res.json(products);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// --- 2. مسار حذف منتج معين ---
+// --- 3. مسار حذف منتج ---
 app.delete('/api/products/:id', async (req, res) => {
   try {
     await Product.findByIdAndDelete(req.params.id);
@@ -127,9 +78,41 @@ app.delete('/api/products/:id', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-app.get('/', (req, res) => {
-  res.send('Final Test: Server is working!');
+
+// --- 4. مسارات المصادقة (تسجيل وحساب المدير) ---
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ email, password: hashedPassword });
+    await newUser.save();
+    res.status(201).json({ message: 'تم إنشاء حساب المدير بنجاح!' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: 'الإيميل غير موجود' });
+    
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ message: 'الباسورد غلط' });
+
+    const token = jwt.sign({ id: user._id }, 'secret_key', { expiresIn: '1h' });
+    res.json({ token, message: 'تم الدخول بنجاح!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/', (req, res) => {
+  res.send('Server is running smoothly! 🚀');
+});
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`السيرفر يعمل بنجاح على بورت ${PORT} 🚀`));
+app.listen(PORT, () => console.log(`السيرفر يعمل على بورت ${PORT}`));
+
 module.exports = app;
