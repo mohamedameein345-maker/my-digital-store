@@ -85,9 +85,9 @@ app.post('/api/auth/login', async (req, res) => {
         // إعطاء "كارت دخول" (Token) للمتصفح
         const token = jwt.sign({ id: user._id }, 'secret_key', { expiresIn: '1h' });
         res.json({ token, message: 'تم الدخول بنجاح!' });
-   88  } catch (error) {
-89    res.status(500).json({ error: error.message });
-90  }
+   88 } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('/', (req, res) => {
@@ -95,3 +95,4 @@ app.get('/', (req, res) => {
 });
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`السيرفر يعمل بنجاح على بورت ${PORT} 🚀`));
+module.exports = app;
