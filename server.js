@@ -88,8 +88,8 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
-});app.get('/', (req, res) => {
-  res.send('Welcome to My Digital Store API - Server is Live!');
+})app.get('/', (req, res) => {
+  res.send('Final Test: Server is working!');
 });
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`السيرفر يعمل بنجاح على بورت ${PORT} 🚀`));
