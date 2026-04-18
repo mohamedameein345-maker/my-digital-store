@@ -1,64 +1,75 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import Store from './Store';
 
-function App() {
-  const [formData, setFormData] = useState({ name: '', price: '', description: '' });
+function AdminDashboard() {
   const [products, setProducts] = useState([]);
-  // ده لينك السيرفر بتاعك على فيرسيل
- const API_URL = 'https://my-digital-store-six.vercel.app/api/products';
-  // دالة لجلب المنتجات من القاعدة
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch(API_URL);
-      const data = await res.json();
-      setProducts(data);
-    } catch (error) {
-      console.error("خطأ في جلب البيانات:", error);
-    }
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState('');
+  const [description, setDescription] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+
+  const API_URL = 'https://my-digital-store-six.vercel.app/api/products';
+
+  const fetchProducts = () => {
+    fetch(`${API_URL}?t=${new Date().getTime()}`)
+      .then(res => res.json())
+      .then(data => setProducts(data))
+      .catch(err => console.error("Error:", err));
   };
 
   useEffect(() => { fetchProducts(); }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    await fetch(`${API_URL}/add`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-    alert('تم إضافة المنتج بنجاح!');
-    fetchProducts(); // تحديث القائمة فوراً بعد الإضافة
+  const addProduct = async () => {
+    if (!name || !price) return alert("من فضلك ادخل الاسم والسعر");
+
+    try {
+      const response = await fetch(API_URL + '/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, price, description, imageUrl, digitalFileUrl: videoUrl })
+      });
+
+      if (response.ok) {
+        alert("تمت الإضافة بنجاح! ✅");
+        // تصفير الخانات فوراً
+        setName(''); setPrice(''); setDescription(''); setImageUrl(''); setVideoUrl('');
+        fetchProducts(); // تحديث القائمة
+      } else {
+        alert("السيرفر رفض الإضافة. تأكد من رفع تحديثات server.js لـ Vercel");
+      }
+    } catch (error) {
+      alert("فشل الاتصال بالسيرفر");
+    }
   };
 
   const deleteProduct = async (id) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
+    if (window.confirm("حذف الكورس؟")) {
       await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-      fetchProducts(); // تحديث القائمة بعد الحذف
+      fetchProducts();
     }
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial', maxWidth: '600px', margin: 'auto' }}>
-      <h1>🛠️ لوحة تحكم المنتجات</h1>
-      
-      {/* فورمة إضافة منتج جديد */}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '30px', border: '1px solid #ddd', padding: '15px' }}>
-        <h3>إضافة منتج جديد:</h3>
-        <input type="text" placeholder="اسم المنتج" onChange={(e) => setFormData({...formData, name: e.target.value})} required />
-        <input type="number" placeholder="السعر" onChange={(e) => setFormData({...formData, price: e.target.value})} required />
-        <button type="submit" style={{ background: '#28a745', color: 'white', border: 'none', padding: '10px', cursor: 'pointer' }}>إضافة المنتج</button>
-      </form>
-
-      <hr />
-
-      {/* عرض المنتجات الحالية */}
-      <h3>📦 قائمة المنتجات:</h3>
-      <div style={{ display: 'grid', gap: '10px' }}>
-        {products.length === 0 ? <p>لا توجد منتجات حالياً.</p> : products.map(product => (
-          <div key={product._id} style={{ border: '1px solid #ddd', padding: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <strong>{product.name}</strong> - {product.price} جنيه
-            </div>
-            <button onClick={() => deleteProduct(product._id)} style={{ background: '#dc3545', color: 'white', border: 'none', padding: '5px 10px', cursor: 'pointer' }}>حذف 🗑️</button>
+    <div dir="rtl" style={{ padding: '20px', fontFamily: 'Arial', backgroundColor: '#f0f2f5', minHeight: '100vh' }}>
+      <div style={{ maxWidth: '600px', margin: '0 auto', backgroundColor: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+        <h2 style={{ textAlign: 'center' }}>⚙️ إدارة الكورسات</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <input placeholder="اسم الكورس" value={name} onChange={e => setName(e.target.value)} style={inputStyle} />
+          <input placeholder="السعر" value={price} onChange={e => setPrice(e.target.value)} style={inputStyle} />
+          <input placeholder="الوصف" value={description} onChange={e => setDescription(e.target.value)} style={inputStyle} />
+          <input placeholder="رابط الصورة" value={imageUrl} onChange={e => setImageUrl(e.target.value)} style={inputStyle} />
+          <input placeholder="رابط الفيديو (YouTube)" value={videoUrl} onChange={e => setVideoUrl(e.target.value)} style={inputStyle} />
+          <button onClick={addProduct} style={{ backgroundColor: '#2ecc71', color: 'white', padding: '12px', border: 'none', borderRadius: '5px', fontWeight: 'bold' }}>إضافة للمتجر</button>
+        </div>
+      </div>
+      <h3 style={{ textAlign: 'center', marginTop: '30px' }}>القائمة الحالية:</h3>
+      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+        {products.map(p => (
+          <div key={p._id} style={{ backgroundColor: '#fff', padding: '10px', marginBottom: '10px', borderRadius: '5px', display: 'flex', justifyContent: 'space-between' }}>
+            <span>{p.name} - {p.price} ج</span>
+            <button onClick={() => deleteProduct(p._id)} style={{ color: 'red', border: 'none', background: 'none' }}>حذف 🗑️</button>
           </div>
         ))}
       </div>
@@ -66,4 +77,22 @@ function App() {
   );
 }
 
+const inputStyle = { padding: '10px', borderRadius: '5px', border: '1px solid #ddd' };
+
+function App() {
+  return (
+    <Router>
+      <nav style={{ padding: '15px', backgroundColor: '#2c3e50', display: 'flex', justifyContent: 'center', gap: '20px' }}>
+        <Link to="/" style={{ color: 'white', textDecoration: 'none' }}>🏠 المتجر</Link>
+        <Link to="/admin" style={{ color: 'white', textDecoration: 'none' }}>⚙️ لوحة التحكم</Link>
+      </nav>
+      <Routes>
+        <Route path="/" element={<Store />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+      </Routes>
+    </Router>
+  );
+}
+
 export default App;
+
