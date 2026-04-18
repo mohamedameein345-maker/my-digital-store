@@ -15,31 +15,24 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// فتح باب المخزن للصور
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// إعدادات multer لرفع الملفات
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
+  destination: (req, file, cb) => { cb(null, 'uploads/'); },
+  filename: (req, file, cb) => { cb(null, Date.now() + '-' + file.originalname); }
 });
 const upload = multer({ storage: storage });
 
-// الاتصال بقاعدة البيانات
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('تم الاتصال بالخزنة بنجاح! 😍'))
   .catch(err => console.log(err));
 
-// --- 1. مسار إضافة منتج جديد (لوحة التحكم) ---
+// --- 1. مسار إضافة منتج جديد (محدث لدعم الأقسام) ---
 app.post('/api/products/add', upload.single('file'), async (req, res) => {
   try {
-    const { name, price, description, imageUrl, digitalFileUrl } = req.body;
+    // ضفنا category هنا عشان السيرفر يستلمها من لوحة التحكم
+    const { name, price, description, imageUrl, digitalFileUrl, category } = req.body;
     
-    // لو فيه ملف مرفوع حقيقي بنستخدمه، لو مفيش بنستخدم الرابط اللي جاي من الـ Body
     const finalFileUrl = req.file 
       ? `https://${req.get('host')}/uploads/${req.file.filename}` 
       : digitalFileUrl;
@@ -49,7 +42,8 @@ app.post('/api/products/add', upload.single('file'), async (req, res) => {
       price,
       description,
       imageUrl,
-      digitalFileUrl: finalFileUrl
+      digitalFileUrl: finalFileUrl,
+      category: category || 'عام' // لو مبعتش قسم هيخليها "عام" تلقائياً
     });
 
     await newProduct.save();
@@ -62,7 +56,7 @@ app.post('/api/products/add', upload.single('file'), async (req, res) => {
 // --- 2. مسار عرض كل المنتجات ---
 app.get('/api/products', async (req, res) => {
   try {
-    const products = await Product.find();
+    const products = await Product.find().sort({ createdAt: -1 }); // عرض الأحدث أولاً
     res.json(products);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -79,7 +73,7 @@ app.delete('/api/products/:id', async (req, res) => {
   }
 });
 
-// --- 4. مسارات المصادقة (تسجيل وحساب المدير) ---
+// --- 4. مسارات المصادقة ---
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password } = req.body;
