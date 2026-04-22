@@ -7,10 +7,11 @@ function Store() {
   const [activeCategory, setActiveCategory] = useState('الكل');
   const [selectedVideo, setSelectedVideo] = useState(null);
 
-  // --- حالات نظام التفعيل اليدوي الجديد ---
+  // --- حالات نظام التفعيل اليدوي ---
   const [showPayModal, setShowPayModal] = useState(false);
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false); // لمنع التكرار
 
   const [siteConfig, setSiteConfig] = useState({
     siteName: 'أكاديمية الكورسات الرقمية',
@@ -25,14 +26,12 @@ function Store() {
   const API_URL = 'https://my-digital-store-six.vercel.app/api';
 
   useEffect(() => {
-    // 1. جلب المنتجات
+    // جلب البيانات الأساسية
     fetch(`${API_URL}/products?t=${new Date().getTime()}`)
       .then((res) => res.json())
       .then((data) => {
         setProducts(data);
         setFilteredProducts(data);
-
-        // 2. جلب الأقسام بأسعارها (V2)
         const savedCats = localStorage.getItem('my_custom_categories_v2');
         if (savedCats) {
           setCategories(JSON.parse(savedCats));
@@ -40,24 +39,12 @@ function Store() {
           const uniqueFromProducts = [...new Set(data.map(p => p.category || 'عام'))];
           setCategories(uniqueFromProducts.map(name => ({ name, price: '0' })));
         }
-      });
+      })
+      .catch(err => console.log("خطأ في جلب المنتجات:", err));
 
-    // 3. جلب إعدادات الهوية
     const savedConfig = localStorage.getItem('site_config');
-    if (savedConfig) {
-      setSiteConfig(JSON.parse(savedConfig));
-    }
+    if (savedConfig) { setSiteConfig(JSON.parse(savedConfig)); }
   }, []);
-
-  const filterByCategory = (catName) => {
-    setActiveCategory(catName);
-    if (catName === 'الكل') {
-      setFilteredProducts(products);
-    } else {
-      const filtered = products.filter(p => (p.category || 'عام') === catName);
-      setFilteredProducts(filtered);
-    }
-  };
 
   const getActivePrice = () => {
     if (activeCategory === 'الكل') return siteConfig.fullSubscriptionPrice;
@@ -65,9 +52,15 @@ function Store() {
     return cat ? cat.price : '0';
   };
 
-  // --- وظيفة إرسال طلب التفعيل ---
+  // --- وظيفة إرسال طلب التفعيل المحدثة ---
   const submitTransfer = async () => {
-    if(!buyerName || !buyerPhone) return alert("يرجى ملء البيانات كاملة");
+    console.log("محاولة إرسال الطلب..."); // للتأكد في الـ Console
+    
+    if(!buyerName.trim() || !buyerPhone.trim()) {
+      return alert("يرجى كتابة الاسم ورقم الموبايل");
+    }
+
+    setIsSubmitting(true);
 
     try {
       const response = await fetch(`${API_URL}/activations/add`, {
@@ -82,12 +75,25 @@ function Store() {
       });
 
       if (response.ok) {
-        alert(`شكراً ${buyerName}! تم إرسال طلبك. حول المبلغ لـ 01029973041 وسيتم التفعيل فوراً ✅`);
+        alert(`تم استلام طلبك يا ${buyerName}! ✅\nحول المبلغ الآن لـ 01029973041 وسيتم تفعيل كورس ${activeCategory} فوراً.`);
         setShowPayModal(false);
         setBuyerName(''); setBuyerPhone('');
+      } else {
+        alert("السيرفر لم يستجب بشكل صحيح، حاول مرة أخرى");
       }
     } catch (error) {
-      alert("حدث خطأ في الاتصال، حاول مرة أخرى.");
+      console.error("Error submitting:", error);
+      alert("مشكلة في الاتصال بالسيرفر! تأكد أن الـ Backend يعمل.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const filterByCategory = (catName) => {
+    setActiveCategory(catName);
+    if (catName === 'الكل') { setFilteredProducts(products); }
+    else {
+      setFilteredProducts(products.filter(p => (p.category || 'عام') === catName));
     }
   };
 
@@ -105,16 +111,11 @@ function Store() {
     <div dir="rtl" style={{ fontFamily: 'Cairo, Arial', backgroundColor: '#f0f2f5', minHeight: '100vh' }}>
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=Amiri:wght@400;700&family=Cairo:wght@400;700;900&family=Changa:wght@400;700&family=Lalezar&family=Tajawal:wght@400;700;900&display=swap" />
 
-      {/* الهيدر */}
       <header style={{ backgroundColor: '#fff', padding: '40px 20px', textAlign: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', borderTop: `5px solid ${siteConfig.mainColor}` }}>
-        {siteConfig.logoUrl ? (
-          <img src={siteConfig.logoUrl} alt="Logo" style={{ maxHeight: '100px', marginBottom: '10px' }} />
-        ) : (
-          <h1 style={{ color: siteConfig.mainColor, margin: '0', fontFamily: siteConfig.fontFamily || 'Cairo', fontWeight: siteConfig.fontWeight || 'bold', fontSize: `${siteConfig.fontSize || 32}px` }}>
-            {siteConfig.siteName}
-          </h1>
-        )}
-        <p style={{ color: '#666', marginTop: '10px', fontFamily: 'Tajawal' }}>تعلم مهارات جديدة مع أفضل الدروس الحصرية</p>
+        <h1 style={{ color: siteConfig.mainColor, margin: '0', fontFamily: siteConfig.fontFamily, fontSize: `${siteConfig.fontSize}px` }}>
+          {siteConfig.siteName}
+        </h1>
+        <p style={{ color: '#666', marginTop: '10px' }}>تعلم مهارات جديدة مع أفضل الدروس الحصرية</p>
       </header>
 
       {/* شريط الأقسام */}
@@ -125,14 +126,14 @@ function Store() {
         ))}
       </div>
 
-      {/* بانر السعر والاشتراك */}
+      {/* بنر الاشتراك */}
       <div style={{ textAlign: 'center', padding: '25px', backgroundColor: '#fff', margin: '20px auto', maxWidth: '900px', borderRadius: '20px', boxShadow: '0 5px 15px rgba(0,0,0,0.05)', border: `1px solid ${siteConfig.mainColor}33` }}>
-        <h3 style={{ fontFamily: 'Cairo', margin: '0 0 10px 0' }}>🎟️ اشتراك {activeCategory === 'الكل' ? 'الوصول الكامل' : `قسم ${activeCategory}`}</h3>
+        <h3 style={{ fontFamily: 'Cairo' }}>🎟️ اشتراك {activeCategory === 'الكل' ? 'الموقع بالكامل' : `قسم ${activeCategory}`}</h3>
         <div style={{ fontSize: '28px', fontWeight: '900', color: siteConfig.mainColor, marginBottom: '15px' }}>{getActivePrice()} جنيهاً</div>
         <button onClick={() => setShowPayModal(true)} style={{ padding: '12px 40px', backgroundColor: siteConfig.mainColor, color: 'white', border: 'none', borderRadius: '30px', fontWeight: 'bold', cursor: 'pointer', fontSize: '18px' }}>اشترك الآن وابعث إثبات التحويل 🚀</button>
       </div>
 
-      {/* عرض المنتجات */}
+      {/* المنتجات */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '30px', padding: '20px' }}>
         {filteredProducts.map((product) => (
           <div key={product._id} style={{ backgroundColor: '#fff', borderRadius: '20px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
@@ -141,25 +142,30 @@ function Store() {
               <h3 style={{ fontFamily: 'Cairo' }}>{product.name}</h3>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' }}>
                 <span style={{ fontSize: '20px', fontWeight: 'bold', color: siteConfig.mainColor }}>{product.price} ج</span>
-                <button onClick={() => product.digitalFileUrl ? setSelectedVideo(product.digitalFileUrl) : alert('لا يوجد فيديو')} style={{ padding: '8px 15px', backgroundColor: '#2c3e50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>مشاهدة 📽️</button>
+                <button onClick={() => setSelectedVideo(product.digitalFileUrl)} style={{ padding: '8px 15px', backgroundColor: '#2c3e50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>مشاهدة 📽️</button>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* --- نافذة الدفع اليدوي (Modal) --- */}
+      {/* --- نافذة الدفع --- */}
       {showPayModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
           <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '20px', width: '90%', maxWidth: '400px', textAlign: 'center' }}>
             <h3 style={{fontFamily: 'Cairo', marginBottom: '10px'}}>💳 تفعيل الاشتراك</h3>
-            <p style={{fontSize: '14px'}}>حول مبلغ <strong>{getActivePrice()} ج</strong> إلى رقم فودافون كاش:</p>
-            <div style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '10px', fontSize: '22px', fontWeight: 'bold', marginBottom: '20px', border: '2px dashed #ccc' }}>01029973041</div>
+            <p>حول لـ: <strong style={{color: siteConfig.mainColor, fontSize: '22px'}}>01029973041</strong></p>
             
             <input placeholder="اسمك الثنائي" value={buyerName} onChange={e => setBuyerName(e.target.value)} style={inputStyle} />
             <input placeholder="رقم الموبايل اللي حولت منه" value={buyerPhone} onChange={e => setBuyerPhone(e.target.value)} style={inputStyle} />
             
-            <button onClick={submitTransfer} style={{ ...btnPrimary, backgroundColor: siteConfig.mainColor }}>إرسال الطلب</button>
+            <button 
+              onClick={submitTransfer} 
+              disabled={isSubmitting}
+              style={{ ...btnPrimary, backgroundColor: isSubmitting ? '#ccc' : siteConfig.mainColor }}
+            >
+              {isSubmitting ? "جاري الإرسال..." : "إرسال الطلب الآن"}
+            </button>
             <button onClick={() => setShowPayModal(false)} style={{ ...btnPrimary, backgroundColor: '#95a5a6', marginTop: '10px' }}>إلغاء</button>
           </div>
         </div>
